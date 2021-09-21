@@ -79,23 +79,27 @@ morpControl.Callback = @(ui,~) processUICheckbox(-1,-1,ui.Value);
 %                 'String','Frame No:','BackgroundColor',f.Color);
 % frameControl.Callback = @(ui,~) processUIEdit(-1,-1,-1,ui.String,-1);
 
-firingCycleForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next FCycle','Position',[570,5,70,20]);
-firingCycleForwControl.Callback = @(ui,~) processUICycleChange(0, 1);
-
-firingCycleBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev FCycle','Position',[570,25,70,20]);
-firingCycleBackControl.Callback = @(~,~) processUICycleChange(0, -1);
-
-cycleForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next Cycle','Position',[570,5,70,20]);
+cycleForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next Cycle','Position',[610,5,70,20]);
 cycleForwControl.Callback = @(ui,~) processUICycleChange(1, 0);
 
-cycleBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev Cycle','Position',[570,25,70,20]);
+cycleBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev Cycle','Position',[610,25,70,20]);
 cycleBackControl.Callback = @(~,~) processUICycleChange(-1, 0);
 
-frameForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next CA','Position',[645,5,70,20]);
+frameForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next CA','Position',[685,5,70,20]);
 frameForwControl.Callback = @(~,~) processUIFrameChange(1);
 
-frameBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev CA','Position',[645,25,70,20]);
+frameBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev CA','Position',[685,25,70,20]);
 frameBackControl.Callback = @(~,~) processUIFrameChange(-1);
+
+firingCycleForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next FCycle','Position',[760,5,70,20]);
+firingCycleForwControl.Callback = @(ui,~) processUICycleChange(0, 1);
+
+firingCycleBackControl = uicontrol('Parent',f,'Style','pushbutton','String','Prev FCycle','Position',[760,25,70,20]);
+firingCycleBackControl.Callback = @(~,~) processUICycleChange(0, -1);
+
+injPressureControl = uicontrol('Parent',f,'Style','edit','Position',[575,5,30,20],...
+              'value',InjPressure);
+injPressureControl.Callback = @(ui,~) processUIInjPressure(ui.String);
 
 %% Declare the UI processing functions
 
@@ -124,11 +128,15 @@ function processUIFrameChange(changeF)
 end
 
 function processUICycleChange(changeC, changeFC)
-    global Cycles
-    if ((Cycles == 10 && changeC == 1) || (Cycles == 1 && changeC == -1))
-        return;
-    end
+    global Cycles InjPressure FiringCycle ImageBag
     Cycles = Cycles + changeC;
+    FiringCycle = FiringCycle + changeFC;
+    testDir = dataDirProcessing(InjPressure, FiringCycle, ImageBag(1));
+    if ~isfile(testDir)
+        FiringCycle = FiringCycle - changeFC;
+        Cycles = Cycles - changeC;
+        return
+    end
     visualiseImage();
 end
 
@@ -158,6 +166,15 @@ function processUIEdit(morp, upA, loA, frames,cycles)
     visualiseImage();
 end
 
+function processUIInjPressure(injPressure)
+    global InjPressure FiringCycle ImageBag;
+    testDir = dataDirProcessing(str2double(injPressure), FiringCycle, ImageBag(1));
+    if ~isfile(testDir)
+        return
+    end
+    InjPressure = str2double(injPressure);
+    visualiseImage();
+end
 
 %% Declare visualisation image function
 
@@ -223,6 +240,8 @@ function visualiseImage()
                 'String',"Upper Adjust [" + num2str(ImadjustRange(2))+ "]",'BackgroundColor',f.Color);
     uicontrol('Parent',f,'Style','text','Position',[200,0,70,30],...
                 'String',"Lower Adjust [" + num2str(ImadjustRange(1)) + "]",'BackgroundColor',f.Color);
+    uicontrol('Parent',f,'Style','text','Position',[510,0,70,30],...
+                'String',"Inj Pressure [" + num2str(InjPressure) + "]",'BackgroundColor',f.Color);
 end
 
 %% Declare Data Directory processing
@@ -231,15 +250,15 @@ function FrameImage = dataDirProcessing(injPressure, fCycle, imageRef)
     global DataDirectory Cycles
     if(imageRef < 10)
         if(Cycles ~= 10)
-            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\50bar\f1_240_210_tSpk_6_S000" + num2str(Cycles) + "\f1_240_210_tSpk_6_S000" + num2str(Cycles) + "00000";
+            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(injPressure) + "bar\f" + num2str(fCycle) + "_240_210_tSpk_6_S000" + num2str(Cycles) + "\f" + num2str(fCycle) + "_240_210_tSpk_6_S000" + num2str(Cycles) + "00000";
         else
-            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\50bar\f1_240_210_tSpk_6_S00" + num2str(Cycles) + "\f1_240_210_tSpk_6_S00" + num2str(Cycles) + "00000";
+            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(injPressure) + "bar\f" + num2str(fCycle) + "_240_210_tSpk_6_S00" + num2str(Cycles) + "\f" + num2str(fCycle) + "_240_210_tSpk_6_S00" + num2str(Cycles) + "00000";
         end
     else
         if(Cycles ~= 10)
-            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\50bar\f1_240_210_tSpk_6_S000" + num2str(Cycles) + "\f1_240_210_tSpk_6_S000" + num2str(Cycles) + "0000";
+            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(injPressure) + "bar\f" + num2str(fCycle) + "_240_210_tSpk_6_S000" + num2str(Cycles) + "\f" + num2str(fCycle) + "_240_210_tSpk_6_S000" + num2str(Cycles) + "0000";
         else
-            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\50bar\f1_240_210_tSpk_6_S00" + num2str(Cycles) + "\f1_240_210_tSpk_6_S00" + num2str(Cycles) + "0000";
+            DataDirectory = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(injPressure) + "bar\f" + num2str(fCycle) + "_240_210_tSpk_6_S00" + num2str(Cycles) + "\f" + num2str(fCycle) + "_240_210_tSpk_6_S00" + num2str(Cycles) + "0000";
         end
     end
     FrameImage = strcat(DataDirectory, num2str(imageRef), '.jpg');
