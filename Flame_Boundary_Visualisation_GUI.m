@@ -8,8 +8,8 @@ global CrankAngle ImadjustRange MorpSize DataDirectory ImageBag ContRangeC...
 DataDirectory =...
     'D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\50bar\f1_240_210_tSpk_6_S0001\f1_240_210_tSpk_6_S00010000';
 
-ImageBag =  [10];
-CrankAngle = -9.6 + ImageBag(1) * 0.36;
+ImageBag =  10;
+CrankAngle = -9.6 + ImageBag * 0.36;
 
 %% Define the fixed parameters
 
@@ -73,12 +73,6 @@ morpControlText = uicontrol('Parent',f,'Style','text','Position',[440,0,55,30],.
                 'String','Morphology:','BackgroundColor',f.Color);
 morpControl.Callback = @(ui,~) processUICheckbox(-1,-1,ui.Value);
 
-% frameControl = uicontrol('Parent',f,'Style','edit','Position',[550,10,20,20],...
-%               'value',1,'min',0,'max', 1);
-% frameControlText = uicontrol('Parent',f,'Style','text','Position',[510,0,40,30],...
-%                 'String','Frame No:','BackgroundColor',f.Color);
-% frameControl.Callback = @(ui,~) processUIEdit(-1,-1,-1,ui.String,-1);
-
 cycleForwControl = uicontrol('Parent',f,'Style','pushbutton','String','Next Cycle','Position',[610,5,70,20]);
 cycleForwControl.Callback = @(ui,~) processUICycleChange(1, 0);
 
@@ -118,12 +112,14 @@ function processUICheckbox(contRange, thresh, morp)
 end
 
 function processUIFrameChange(changeF)
-    global ImageBag CrankAngle
-    if ((ImageBag(1) == 45 && changeF == 1) || (ImageBag(1) == 1 && changeF == -1))
-        return;
+    global InjPressure FiringCycle ImageBag CrankAngle
+    ImageBag = ImageBag + changeF;
+    testDir = dataDirProcessing(InjPressure, FiringCycle, ImageBag);
+    if ~isfile(testDir)
+        ImageBag = ImageBag - changeF;
+        return
     end
-    ImageBag(1) = ImageBag(1) + changeF;
-    CrankAngle = -9.6 + ImageBag(1) * 0.36;
+    CrankAngle = -9.6 + ImageBag * 0.36;
     visualiseImage();
 end
 
@@ -131,7 +127,7 @@ function processUICycleChange(changeC, changeFC)
     global Cycles InjPressure FiringCycle ImageBag
     Cycles = Cycles + changeC;
     FiringCycle = FiringCycle + changeFC;
-    testDir = dataDirProcessing(InjPressure, FiringCycle, ImageBag(1));
+    testDir = dataDirProcessing(InjPressure, FiringCycle, ImageBag);
     if ~isfile(testDir)
         FiringCycle = FiringCycle - changeFC;
         Cycles = Cycles - changeC;
@@ -168,7 +164,7 @@ end
 
 function processUIInjPressure(injPressure)
     global InjPressure FiringCycle ImageBag;
-    testDir = dataDirProcessing(str2double(injPressure), FiringCycle, ImageBag(1));
+    testDir = dataDirProcessing(str2double(injPressure), FiringCycle, ImageBag);
     if ~isfile(testDir)
         return
     end
@@ -181,15 +177,7 @@ end
 function visualiseImage()
     global f Mask ImadjustRange MorpSize ImageBag ContRangeC ThreshC MorpC...
         CrankAngle FiringCycle InjPressure Cycles;
-    %     inc = round(TotalFrames / Frames);
-    %     count = 1;
-    %     ImageBag = [];
-    %     while(count <= Frames)
-    %         ImageBag(count) = inc * count;
-    %         count = count + 1;
-    %     end
-    for i = 1:length(ImageBag)
-        FrameImage = dataDirProcessing(InjPressure, FiringCycle, ImageBag(i));
+        FrameImage = dataDirProcessing(InjPressure, FiringCycle, ImageBag);
         I_org=imread(FrameImage);
         I=rgb2gray(I_org);
         I(Mask==0)=0;
@@ -206,32 +194,31 @@ function visualiseImage()
         I4=imopen(I3,SE);
         cols = 2 + ContRangeC + ThreshC + MorpC;
         counter = 1;
-        subplot(length(ImageBag), cols, (i - 1) * cols + counter);
+        subplot(length(ImageBag), cols, counter);
         imshow(I);
         title('Original');
         counter = counter + 1;
         if(ContRangeC)
-            subplot(length(ImageBag), cols, (i - 1) * cols + counter);
+            subplot(length(ImageBag), cols, counter);
             imshow(I1);
             title('Adjusted Range');
             counter = counter + 1;
         end
         if(ThreshC)
-            subplot(length(ImageBag), cols, (i - 1) * cols + counter);
+            subplot(length(ImageBag), cols, counter);
             imshow(I2);
             title('Thresholded');
             counter = counter + 1;
         end
         if(MorpC)
-            subplot(length(ImageBag), cols, (i - 1) * cols + counter);
+            subplot(length(ImageBag), cols, counter);
             imshow(I3);
             title('Closed');
             counter = counter + 1;
         end
-        subplot(length(ImageBag), cols, (i - 1) * cols + counter);
+        subplot(length(ImageBag), cols, counter);
         imshow(I4);
         title('Opened');
-    end
     uicontrol('Parent',f,'Style','text','fontweight','bold','Position',[0,30,550,20],...
                 'String',"Flame Propagation Visualisation GUI (Inj Pressure: " + num2str(InjPressure) + "bar, Firing Cycle: " + num2str(FiringCycle) + ", Cycle: " + num2str(Cycles) + ", CA: " + num2str(CrankAngle) + " bTDC)",'BackgroundColor',f.Color);
     uicontrol('Parent',f,'Style','text','Position',[0,0,70,30],...
