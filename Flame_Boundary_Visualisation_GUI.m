@@ -1,7 +1,8 @@
 %% Declare global variables for callbacks
-
+clear;
+clc;
 global CrankAngle ImadjustRange MorpSize DataDirectory ImageBag ContRangeC...
-    ThreshC MorpC Cycles FiringCycle InjPressure f R_Thres Center;
+    ThreshC MorpC Cycles FiringCycle InjPressure f R_Thres Center CaseMeanR StartFrame CA;
 
 %% Set up the Image Data Access
 
@@ -16,6 +17,8 @@ CrankAngle = -9.6 + ImageBag * 0.36;
 ImgRes=768;        
 Center=[383 368];
 R_Thres=[713-368];
+CA = linspace(-9.24,170.76,501);
+StartFrame = 9;
 
 Mask=ones(ImgRes,ImgRes);
 for i_x=1:ImgRes
@@ -45,15 +48,15 @@ visualiseImage();
 
 morpSizeControl = uicontrol('Parent',f,'Style','edit','Position',[70,5,30,20],...
               'value',MorpSize);
-morpSizeControl.Callback = @(ui,~) processUIEdit(ui.String,-1,-1,-1,-1);
+morpSizeControl.Callback = @(ui,~) processUIEdit(ui.String,-1,-1);
 
 uppAdjControl = uicontrol('Parent',f,'Style','edit','Position',[170,5,30,20],...
               'value',ImadjustRange(2));
-uppAdjControl.Callback = @(ui,~) processUIEdit(-1,ui.String,-1,-1,-1); 
+uppAdjControl.Callback = @(ui,~) processUIEdit(-1,ui.String,-1); 
 
 lowAdjControl = uicontrol('Parent',f,'Style','edit','Position',[270,5,30,20],...
               'value',ImadjustRange(1));
-lowAdjControl.Callback = @(ui,~) processUIEdit(-1,-1,ui.String,-1,-1);
+lowAdjControl.Callback = @(ui,~) processUIEdit(-1,-1,ui.String);
 
 contrastRangeControl = uicontrol('Parent',f,'Style','checkbox','Position',[355,10,15,15],...
               'value',ContRangeC);
@@ -136,9 +139,10 @@ function processUICycleChange(changeC, changeFC)
         return
     end
     visualiseImage();
+    flameGrowthParameters();
 end
 
-function processUIEdit(morp, upA, loA, frames,cycles)
+function processUIEdit(morp, upA, loA)
     global ImadjustRange MorpSize Frames Cycles;
     if (morp == -1)
         if (upA == -1)
@@ -155,13 +159,8 @@ function processUIEdit(morp, upA, loA, frames,cycles)
     else
         MorpSize = round(str2double(morp));
     end
-    if(frames ~= -1)
-        Frames = str2double(frames);
-    end
-    if(cycles ~= -1)
-        Cycles = str2double(cycles);
-    end
     visualiseImage();
+    flameGrowthParameters();
 end
 
 function processUIInjPressure(injPressure)
@@ -172,6 +171,7 @@ function processUIInjPressure(injPressure)
     end
     InjPressure = str2double(injPressure);
     visualiseImage();
+    flameGrowthParameters();
 end
 
 %% Declare visualisation image function
@@ -179,48 +179,49 @@ end
 function visualiseImage()
     global f Mask ImadjustRange MorpSize ImageBag ContRangeC ThreshC MorpC...
         CrankAngle FiringCycle InjPressure Cycles;
-        FrameImage = dataDirProcessing(InjPressure, FiringCycle, ImageBag);
-        I_org=imread(FrameImage);
-        I=rgb2gray(I_org);
-        I(Mask==0)=0;
-        % Step 1. Contrast enhancement.
-        I1=imadjust(I, ImadjustRange);
-        % Step 2. Image binarisation.
-        level = graythresh(I1);
-        I2=im2bw(I1, level);
-        % Can we use imbinarize? Better performance?
-        % Step 4. Close the image
-        SE = strel('disk',MorpSize);
-        I3=imclose(I2,SE);
-        % Step 5. Open the image
-        I4=imopen(I3,SE);
-        cols = 2 + ContRangeC + ThreshC + MorpC;
-        counter = 1;
+    f;
+    FrameImage = dataDirProcessing(InjPressure, FiringCycle, ImageBag);
+    P_org=imread(FrameImage);
+    P=rgb2gray(P_org);
+    P(Mask==0)=0;
+    % Step 1. Contrast enhancement.
+    P1=imadjust(P, ImadjustRange);
+    % Step 2. Image binarisation.
+    level = graythresh(P1);
+    P2=im2bw(P1, level);
+    % Can we use imbinarize? Better performance?
+    % Step 4. Close the image
+    SE = strel('disk',MorpSize);
+    P3=imclose(P2,SE);
+    % Step 5. Open the image
+    P4=imopen(P3,SE);
+    cols = 2 + ContRangeC + ThreshC + MorpC;
+    counter = 1;
+    subplot(length(ImageBag), cols, counter);
+    imshow(P);
+    title('Original');
+    counter = counter + 1;
+    if(ContRangeC)
         subplot(length(ImageBag), cols, counter);
-        imshow(I);
-        title('Original');
+        imshow(P1);
+        title('Adjusted Range');
         counter = counter + 1;
-        if(ContRangeC)
-            subplot(length(ImageBag), cols, counter);
-            imshow(I1);
-            title('Adjusted Range');
-            counter = counter + 1;
-        end
-        if(ThreshC)
-            subplot(length(ImageBag), cols, counter);
-            imshow(I2);
-            title('Thresholded');
-            counter = counter + 1;
-        end
-        if(MorpC)
-            subplot(length(ImageBag), cols, counter);
-            imshow(I3);
-            title('Closed');
-            counter = counter + 1;
-        end
+    end
+    if(ThreshC)
         subplot(length(ImageBag), cols, counter);
-        imshow(I4);
-        title('Opened');
+        imshow(P2);
+        title('Thresholded');
+        counter = counter + 1;
+    end
+    if(MorpC)
+        subplot(length(ImageBag), cols, counter);
+        imshow(P3);
+        title('Closed');
+        counter = counter + 1;
+    end
+    subplot(length(ImageBag), cols, counter);
+    imshow(P4);
+    title('Opened');
     uicontrol('Parent',f,'Style','text','fontweight','bold','Position',[0,30,550,20],...
                 'String',"Flame Propagation Visualisation GUI (Inj Pressure: " + num2str(InjPressure) + "bar, Firing Cycle: " + num2str(FiringCycle) + ", Cycle: " + num2str(Cycles) + ", CA: " + num2str(CrankAngle) + " bTDC)",'BackgroundColor',f.Color);
     uicontrol('Parent',f,'Style','text','Position',[0,0,70,30],...
@@ -256,165 +257,146 @@ end
 %% Declare flame growth production function
 
 function flameGrowthParameters()
-    global Mask ImadjustRange MorpSize FiringCycle InjPressure R_Thres Center;
+    global Mask ImadjustRange MorpSize FiringCycle InjPressure R_Thres...
+        Cycles Center CaseMeanR CA StartFrame;
     DirHeader = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(InjPressure) + "bar";
     FCycleHeader = "f" + num2str(FiringCycle) + "_240_210_tSpk_6_S";
-    CA = linspace(-9.24,170.76,501);
-    StartFrame = 9;
     InitialFlameFrame=3;
     BoundaryLayerThickness=[12];
-    for i_cycle=1:10
-        K=0;
-        MaxR=0;
-        i_frame=StartFrame;
-        while MaxR<R_Thres
-            K=K+1;
-            i_frame=i_frame+1;
-            CycleFolder=fullfile(DirHeader, FCycleHeader + sprintf('%04d',i_cycle));
-            FrameImage=fullfile(CycleFolder, FCycleHeader + sprintf('%04d',i_cycle) + sprintf('%06d',i_frame) + '.jpg');
-            % Image load and binarization ============================
-            I_org=imread(FrameImage);
-            I=rgb2gray(I_org);
-            I(Mask==0)=0;
-            % Step 1. Contrast enhancement.
-            I1=imadjust(I, ImadjustRange);
-            % Step 2. Image binarisation.
-            level = graythresh(I1);
-            I2=im2bw(I1, level);
-            % Can we use imbinarize? Better performance?
-            % Step 4. Close the image
-            SE = strel('disk',MorpSize);
-            I3=imclose(I2,SE);
-            % Step 5. Open the image
-            I4=imopen(I3,SE);
-            % Step 5. Fill in the holes of the boundary
-            I5 = imfill(I4,'holes');
-            % Step 6. Boundary detection.
-            Temp_B=bwboundaries(I5);
-            if ~isempty(Temp_B)
-                % ========================================================
-                % Ignoring too small area detected =======================
-                G=0;
-                for i_B=1:length(Temp_B)
-                    MaxX=max(Temp_B{i_B}(:,2));
-                    MaxY=max(Temp_B{i_B}(:,1));
-                    MinX=min(Temp_B{i_B}(:,2));
-                    MinY=min(Temp_B{i_B}(:,1));
-                    if MaxX-MinX > 3 && MaxY-MinY > 3
-                        G=G+1;
-                        GEOM(G,1:4)=polygeom(Temp_B{i_B}(:,2),Temp_B{i_B}(:,1));
-                        B{G}=Temp_B{i_B};
-                    elseif MaxX-MinX < 3 && MaxY-MinY < 3
-                        G=G+1;
-                        GEOM(G,1:4)=zeros(1,4);
-                        B{G}=[0 0];
-                    end
+    K=0;
+    MaxR=0;
+    i_frame=StartFrame;
+    while MaxR<R_Thres
+        K=K+1;
+        i_frame=i_frame+1;
+        CycleFolder=fullfile(DirHeader, FCycleHeader + sprintf('%04d',Cycles));
+        FrameImage=fullfile(CycleFolder, FCycleHeader + sprintf('%04d',Cycles) + sprintf('%06d',i_frame) + '.jpg');
+        % Image load and binarization ============================
+        I_org=imread(FrameImage);
+        I=rgb2gray(I_org);
+        I(Mask==0)=0;
+        % Step 1. Contrast enhancement.
+        I1=imadjust(I, ImadjustRange);
+        % Step 2. Image binarisation.
+        level = graythresh(I1);
+        I2=im2bw(I1, level);
+        % Can we use imbinarize? Better performance?
+        % Step 4. Close the image
+        SE = strel('disk',MorpSize);
+        I3=imclose(I2,SE);
+        % Step 5. Open the image
+        I4=imopen(I3,SE);
+        % Step 5. Fill in the holes of the boundary
+        I5 = imfill(I4,'holes');
+        % Step 6. Boundary detection.
+        Temp_B=bwboundaries(I5);
+        if ~isempty(Temp_B)
+            % ========================================================
+            % Ignoring too small area detected =======================
+            G=0;
+            for i_B=1:length(Temp_B)
+                MaxX=max(Temp_B{i_B}(:,2));
+                MaxY=max(Temp_B{i_B}(:,1));
+                MinX=min(Temp_B{i_B}(:,2));
+                MinY=min(Temp_B{i_B}(:,1));
+                if MaxX-MinX > 3 && MaxY-MinY > 3
+                    G=G+1;
+                    GEOM(G,1:4)=polygeom(Temp_B{i_B}(:,2),Temp_B{i_B}(:,1));
+                    B{G}=Temp_B{i_B};
+                elseif MaxX-MinX < 3 && MaxY-MinY < 3
+                    G=G+1;
+                    GEOM(G,1:4)=zeros(1,4);
+                    B{G}=[0 0];
                 end
-                [G_N, ~]=size(GEOM);
-                Temp_GEOM=GEOM;
-                % ==========================================================
-                % Multiple flame area detection during the initial flame propagation.
-                % Selected top 3 maximum boundary area will be considered.
-                if K < InitialFlameFrame
-                    if G_N > 3
-                        for i_MAX=1:3
-                            [~, G_sel(i_MAX)]=max(Temp_GEOM(:,1));
-                            Temp_GEOM(G_sel(i_MAX),1)=0;
-                        end
-                    else
-                        for i_MAX=1:G_N
-                            [~, G_sel(i_MAX)]=max(Temp_GEOM(:,1));
-                            Temp_GEOM(G_sel(i_MAX),1)=0;
-                        end
-                    end
-                    MaxR=0;
-                    clearvars Temp_GEOM
-                    for i_sel=1:length(G_sel)
-                        Temp_SelectedArea(i_sel)=GEOM(G_sel(i_sel),1);
-                        Temp_SelectedBoundary{i_sel}=B{G_sel(i_sel)};
-                        Temp_Selected_X(i_sel)=GEOM(G_sel(i_sel),2);
-                        Temp_Selected_Y(i_sel)=GEOM(G_sel(i_sel),3);
-                    end
-                    SelectedArea{K}=Temp_SelectedArea;
-                    SelectedBoundary{K}=Temp_SelectedBoundary;
-                    Selected_X{K}=Temp_Selected_X;
-                    Selected_Y{K}=Temp_Selected_Y;
-                end
-                % ===============================================================
-                % After initial flame propagation, the one largest flame considered only.
-                if K >= InitialFlameFrame
-                    [~, G_sel]=max(GEOM(:,1));
-                    SelectedArea{K}=GEOM(G_sel,1);
-                    SelectedBoundary{K}=B{G_sel};
-                    Selected_X{K}=GEOM(G_sel,2);
-                    Selected_Y{K}=GEOM(G_sel,3);
-                    R=sqrt((SelectedBoundary{K}(:,2)-Center(1)).^2+(SelectedBoundary{K}(:,1)-Center(2)).^2);
-                    MaxR=max(R);
-                    %======================================================
-                    % extract boundary layer
-                    Temp_I5=~I5;
-                    SE = strel('disk',BoundaryLayerThickness,8);
-                    I5_D=imdilate(Temp_I5,SE);
-                    BoundayLayer{K}=~I5_D+~I5;
-                    %======================================================
-                end
-                r=sqrt(sum(SelectedArea{K})/pi);
-                cent_x(K)=mean(Selected_X{K});
-                cent_y(K)=mean(Selected_Y{K});
-                theta=[0:0.01:2*pi];
-                xp=r*cos(theta)+cent_x(K);
-                yp=r*sin(theta)+cent_y(K);
-                % Overlaid image saving    
-                IMG=figure('Visible','off');
-                I_org=insertText(I_org,[0 0],[sprintf('%.1f CAD aSpk', CA(i_frame)+6)],...
-                 'AnchorPoint','LeftTop','TextColor','white','FontSize',30,'boxColor',[1 1 1]);
-                hold on
-                % Overlay 1: Boundaries
-                if K < InitialFlameFrame
-                    for i_boundary=1:length(SelectedBoundary{K})
-                        plot(SelectedBoundary{K}{i_boundary}(:,2),SelectedBoundary{K}{i_boundary}(:,1),'r','Linewidth',2)
-                    end
-                elseif K >=InitialFlameFrame
-                    plot(SelectedBoundary{K}(:,2),SelectedBoundary{K}(:,1),'r','Linewidth',2)
-                end
-                % Overlay 2: Equavalent circle
-                plot(xp,yp,'color',[0 1 0],'Linewidth',2)
-                plot(cent_x(K),cent_y(K),'*','color',[0 1 0])
-                hold off
-                % Image saving
-                iptsetpref('ImshowBorder','tight')
-                F = getframe(IMG);
-                A = F.cdata;
-                close all hidden
-                MeanR(K)=r;
-                CAD(K)=CA(i_frame);
-                disp(['Day: ' InjPressure 'F# ' num2str(FiringCycle) '   Cycle: ' num2str(i_cycle) '   CurrentR: ' num2str(MaxR) '    Threshold: ' num2str(R_Thres)])
-                else
-                    disp('COULDNT FIND BOUND')
-                    MeanR(K)=0;
-                    CAD(K)=CA(i_frame);
-                    SelectedBoundary{K}=0;
-                    Selected_X{K}=0;
-                    Selected_Y{K}=0;
             end
+            [G_N, ~]=size(GEOM);
+            Temp_GEOM=GEOM;
+            % ==========================================================
+            % Multiple flame area detection during the initial flame propagation.
+            % Selected top 3 maximum boundary area will be considered.
+            if K < InitialFlameFrame
+                if G_N > 3
+                    for i_MAX=1:3
+                        [~, G_sel(i_MAX)]=max(Temp_GEOM(:,1));
+                        Temp_GEOM(G_sel(i_MAX),1)=0;
+                    end
+                else
+                    for i_MAX=1:G_N
+                        [~, G_sel(i_MAX)]=max(Temp_GEOM(:,1));
+                        Temp_GEOM(G_sel(i_MAX),1)=0;
+                    end
+                end
+                MaxR=0;
+                clearvars Temp_GEOM
+                for i_sel=1:length(G_sel)
+                    Temp_SelectedArea(i_sel)=GEOM(G_sel(i_sel),1);
+                    Temp_SelectedBoundary{i_sel}=B{G_sel(i_sel)};
+                    Temp_Selected_X(i_sel)=GEOM(G_sel(i_sel),2);
+                    Temp_Selected_Y(i_sel)=GEOM(G_sel(i_sel),3);
+                end
+                SelectedArea{K}=Temp_SelectedArea;
+                SelectedBoundary{K}=Temp_SelectedBoundary;
+                Selected_X{K}=Temp_Selected_X;
+                Selected_Y{K}=Temp_Selected_Y;
+            end
+            % ===============================================================
+            % After initial flame propagation, the one largest flame considered only.
+            if K >= InitialFlameFrame
+                [~, G_sel]=max(GEOM(:,1));
+                SelectedArea{K}=GEOM(G_sel,1);
+                SelectedBoundary{K}=B{G_sel};
+                Selected_X{K}=GEOM(G_sel,2);
+                Selected_Y{K}=GEOM(G_sel,3);
+                R=sqrt((SelectedBoundary{K}(:,2)-Center(1)).^2+(SelectedBoundary{K}(:,1)-Center(2)).^2);
+                MaxR=max(R);
+                %======================================================
+                % extract boundary layer
+                Temp_I5=~I5;
+                SE = strel('disk',BoundaryLayerThickness,8);
+                I5_D=imdilate(Temp_I5,SE);
+                BoundayLayer{K}=~I5_D+~I5;
+                %======================================================
+            end
+            r=sqrt(sum(SelectedArea{K})/pi);
+            cent_x(K)=mean(Selected_X{K});
+            cent_y(K)=mean(Selected_Y{K});
+            theta=[0:0.01:2*pi];
+            xp=r*cos(theta)+cent_x(K);
+            yp=r*sin(theta)+cent_y(K);
+            MeanR(K)=r;
+            CAD(K)=CA(i_frame);
+            else
+                disp('COULDNT FIND BOUND')
+                MeanR(K)=0;
+                CAD(K)=CA(i_frame);
+                SelectedBoundary{K}=0;
+                Selected_X{K}=0;
+                Selected_Y{K}=0;
         end
-        % Calculating Mean R growth
-        for i_meanR=1:length(MeanR)-1
-            deltaMeanR(i_meanR)=MeanR(i_meanR+1)-MeanR(i_meanR);
-        end
-        CaseBoundary{i_cycle}=SelectedBoundary;
-        CaseMeanR{i_cycle}=MeanR;
-        CasedeltaMeanR{i_cycle}=deltaMeanR;
-        CaseCrankAngle{i_cycle}=CAD;
-        CaseCent_X{i_cycle}=Selected_X;
-        CaseCent_Y{i_cycle}=Selected_Y;
-        CaseCent_BoundaryLayer{i_cycle}=BoundayLayer;
-        clearvars -except DataDirectory CaseDirectory DirHeader FCycleHeader ImgRes CrankAngle i_frame CenterBAG R_ThresBAG ...
-            CalibrationBAG CaseBoundary CaseMeanR CA CasedeltaMeanR CaseCrankAngle MaxR K i_cycle Mask ImadjustRangeBAG OtsuParaBAG InitialFlameFrame ...
-            StartFrameBAG MorpSize CaseCent_Y InjPressure FiringCycle CaseCent_X ...
-            Accu_CaseBoundary Accu_CasedeltaMeanR Accu_CaseMeanR Accu_CaseCrankAngle Accu_CaseCent_X Accu_CaseCent_Y Case ...
-            StartFrame R_Thres ImadjustRange OtsuPara Center i_f i_day Data FiringNumber FiringNumberBAG DateBAG ...
-            InitialFlameFrameBAG CaseCent_BoundaryLayer Accu_CaseCent_BoundaryLayer Adjust_Low  Adjust_High ProcessedImgSaveFolder BoundaryLayerThickness tSpk InjectionPressure % focus here image adjust variable
-
     end
+    % Calculating Mean R growth
+    for i_meanR=1:length(MeanR)-1
+        deltaMeanR(i_meanR)=MeanR(i_meanR+1)-MeanR(i_meanR);
+    end
+    CaseBoundary=SelectedBoundary;
+    CaseMeanR=MeanR;
+    CasedeltaMeanR=deltaMeanR;
+    CaseCrankAngle=CAD;
+    CaseCent_X=Selected_X;
+    CaseCent_Y=Selected_Y;
+    CaseCent_BoundaryLayer=BoundayLayer;
+    CAT = CA(StartFrame + 1:length(CaseMeanR) + StartFrame);
+    figure(2);
+    clf;
+    hold on;
+    title("Flame Propagation Visualisation GUI (Inj Pressure: " + num2str(InjPressure) + "bar, Firing Cycle: " + num2str(FiringCycle) + ", Cycle: " + num2str(Cycles));
+    xlabel('Crank Angle (degrees bTDC)');
+    ylabel('Flame boundary area (mm^2)');
+    plot(CAT, CaseMeanR);
+%     clearvars -except DataDirectory CaseDirectory DirHeader FCycleHeader ImgRes CrankAngle i_frame CenterBAG R_ThresBAG ...
+%         CalibrationBAG CaseBoundary CaseMeanR CA CasedeltaMeanR CaseCrankAngle MaxR K i_cycle Mask ImadjustRangeBAG OtsuParaBAG InitialFlameFrame ...
+%         StartFrameBAG MorpSize CaseCent_Y InjPressure FiringCycle CaseCent_X ...
+%         Accu_CaseBoundary Accu_CasedeltaMeanR Accu_CaseMeanR Accu_CaseCrankAngle Accu_CaseCent_X Accu_CaseCent_Y Case ...
+%         StartFrame R_Thres ImadjustRange OtsuPara Center i_f i_day Data FiringNumber FiringNumberBAG DateBAG ...
+%         InitialFlameFrameBAG CaseCent_BoundaryLayer Accu_CaseCent_BoundaryLayer Adjust_Low  Adjust_High ProcessedImgSaveFolder BoundaryLayerThickness tSpk InjectionPressure % focus here image adjust variable
 end
