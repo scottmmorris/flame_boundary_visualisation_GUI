@@ -266,6 +266,7 @@ function flameGrowthParameters()
     K=0;
     MaxR=0;
     i_frame=StartFrame;
+    tic;
     while MaxR<R_Thres
         K=K+1;
         i_frame=i_frame+1;
@@ -279,8 +280,7 @@ function flameGrowthParameters()
         I1=imadjust(I, ImadjustRange);
         % Step 2. Image binarisation.
         level = graythresh(I1);
-        I2=im2bw(I1, level);
-        % Can we use imbinarize? Better performance?
+        I2=imbinarize(I1, level);
         % Step 4. Close the image
         SE = strel('disk',MorpSize);
         I3=imclose(I2,SE);
@@ -331,13 +331,9 @@ function flameGrowthParameters()
                 for i_sel=1:length(G_sel)
                     Temp_SelectedArea(i_sel)=GEOM(G_sel(i_sel),1);
                     Temp_SelectedBoundary{i_sel}=B{G_sel(i_sel)};
-                    Temp_Selected_X(i_sel)=GEOM(G_sel(i_sel),2);
-                    Temp_Selected_Y(i_sel)=GEOM(G_sel(i_sel),3);
                 end
                 SelectedArea{K}=Temp_SelectedArea;
                 SelectedBoundary{K}=Temp_SelectedBoundary;
-                Selected_X{K}=Temp_Selected_X;
-                Selected_Y{K}=Temp_Selected_Y;
             end
             % ===============================================================
             % After initial flame propagation, the one largest flame considered only.
@@ -345,46 +341,17 @@ function flameGrowthParameters()
                 [~, G_sel]=max(GEOM(:,1));
                 SelectedArea{K}=GEOM(G_sel,1);
                 SelectedBoundary{K}=B{G_sel};
-                Selected_X{K}=GEOM(G_sel,2);
-                Selected_Y{K}=GEOM(G_sel,3);
                 R=sqrt((SelectedBoundary{K}(:,2)-Center(1)).^2+(SelectedBoundary{K}(:,1)-Center(2)).^2);
                 MaxR=max(R);
-                %======================================================
-                % extract boundary layer
-                Temp_I5=~I5;
-                SE = strel('disk',BoundaryLayerThickness,8);
-                I5_D=imdilate(Temp_I5,SE);
-                BoundayLayer{K}=~I5_D+~I5;
-                %======================================================
             end
             r=sqrt(sum(SelectedArea{K})/pi);
-            cent_x(K)=mean(Selected_X{K});
-            cent_y(K)=mean(Selected_Y{K});
-            theta=[0:0.01:2*pi];
-            xp=r*cos(theta)+cent_x(K);
-            yp=r*sin(theta)+cent_y(K);
             MeanR(K)=r;
-            CAD(K)=CA(i_frame);
             else
-                disp('COULDNT FIND BOUND')
                 MeanR(K)=0;
-                CAD(K)=CA(i_frame);
-                SelectedBoundary{K}=0;
-                Selected_X{K}=0;
-                Selected_Y{K}=0;
         end
     end
-    % Calculating Mean R growth
-    for i_meanR=1:length(MeanR)-1
-        deltaMeanR(i_meanR)=MeanR(i_meanR+1)-MeanR(i_meanR);
-    end
-    CaseBoundary=SelectedBoundary;
+    toc;
     CaseMeanR=MeanR;
-    CasedeltaMeanR=deltaMeanR;
-    CaseCrankAngle=CAD;
-    CaseCent_X=Selected_X;
-    CaseCent_Y=Selected_Y;
-    CaseCent_BoundaryLayer=BoundayLayer;
     CAT = CA(StartFrame + 1:length(CaseMeanR) + StartFrame);
     figure(2);
     clf;
@@ -393,10 +360,4 @@ function flameGrowthParameters()
     xlabel('Crank Angle (degrees bTDC)');
     ylabel('Flame boundary area (mm^2)');
     plot(CAT, CaseMeanR);
-%     clearvars -except DataDirectory CaseDirectory DirHeader FCycleHeader ImgRes CrankAngle i_frame CenterBAG R_ThresBAG ...
-%         CalibrationBAG CaseBoundary CaseMeanR CA CasedeltaMeanR CaseCrankAngle MaxR K i_cycle Mask ImadjustRangeBAG OtsuParaBAG InitialFlameFrame ...
-%         StartFrameBAG MorpSize CaseCent_Y InjPressure FiringCycle CaseCent_X ...
-%         Accu_CaseBoundary Accu_CasedeltaMeanR Accu_CaseMeanR Accu_CaseCrankAngle Accu_CaseCent_X Accu_CaseCent_Y Case ...
-%         StartFrame R_Thres ImadjustRange OtsuPara Center i_f i_day Data FiringNumber FiringNumberBAG DateBAG ...
-%         InitialFlameFrameBAG CaseCent_BoundaryLayer Accu_CaseCent_BoundaryLayer Adjust_Low  Adjust_High ProcessedImgSaveFolder BoundaryLayerThickness tSpk InjectionPressure % focus here image adjust variable
 end
