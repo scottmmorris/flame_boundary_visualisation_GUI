@@ -2,7 +2,7 @@
 clear;
 clc;
 global CrankAngle ImadjustRange MorpSize DataDirectory ImageBag ContRangeC...
-    ThreshC MorpC Cycles FiringCycle InjPressure f R_Thres Center CaseMeanR StartFrame CA;
+    ThreshC MorpC Cycles FiringCycle InjPressure f R_Thres Center StartFrame CA;
 
 %% Set up the Image Data Access
 
@@ -16,7 +16,7 @@ CrankAngle = -9.6 + ImageBag * 0.36;
 
 ImgRes=768;        
 Center=[383 368];
-R_Thres=[713-368];
+R_Thres=713-368;
 CA = linspace(-9.24,170.76,501);
 StartFrame = 9;
 
@@ -143,7 +143,7 @@ function processUICycleChange(changeC, changeFC)
 end
 
 function processUIEdit(morp, upA, loA)
-    global ImadjustRange MorpSize Frames Cycles;
+    global ImadjustRange MorpSize;
     if (morp == -1)
         if (upA == -1)
             loA = str2double(loA);
@@ -188,8 +188,7 @@ function visualiseImage()
     P1=imadjust(P, ImadjustRange);
     % Step 2. Image binarisation.
     level = graythresh(P1);
-    P2=im2bw(P1, level);
-    % Can we use imbinarize? Better performance?
+    P2=imbinarize(P1, level);
     % Step 4. Close the image
     SE = strel('disk',MorpSize);
     P3=imclose(P2,SE);
@@ -262,7 +261,6 @@ function flameGrowthParameters()
     DirHeader = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(InjPressure) + "bar";
     FCycleHeader = "f" + num2str(FiringCycle) + "_240_210_tSpk_6_S";
     InitialFlameFrame=3;
-    BoundaryLayerThickness=[12];
     K=0;
     MaxR=0;
     i_frame=StartFrame;
