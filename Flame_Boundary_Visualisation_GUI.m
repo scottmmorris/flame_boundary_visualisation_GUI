@@ -2,7 +2,7 @@
 clear;
 clc;
 global CrankAngle ImadjustRange MorpSize DataDirectory ImageBag ContRangeC...
-    ThreshC MorpC Cycles FiringCycle InjPressure f R_Thres Center StartFrame CA;
+    ThreshC MorpC Labels Cycles FiringCycle InjPressure f f2 R_Thres Center StartFrame CA Clear;
 
 %% Set up the Image Data Access
 
@@ -19,6 +19,8 @@ Center=[383 368];
 R_Thres=713-368;
 CA = linspace(-9.24,170.76,501);
 StartFrame = 9;
+Clear = 0;
+Labels = {};
 
 Mask=ones(ImgRes,ImgRes);
 for i_x=1:ImgRes
@@ -98,9 +100,19 @@ injPressureControl = uicontrol('Parent',f,'Style','edit','Position',[575,5,30,20
               'value',InjPressure);
 injPressureControl.Callback = @(ui,~) processUIInjPressure(ui.String);
 
+f2 = figure(2);
+
+frameForwControl = uicontrol('Parent',f2,'Style','checkbox','String','clf','Position',[0,0,70,20]);
+frameForwControl.Callback = @(ui,~) processUIClearFigure(ui.Value);
+
 flameGrowthParameters();
 
 %% Declare the UI processing functions
+
+function processUIClearFigure(c)
+    global Clear
+    Clear = c;
+end
 
 function processUICheckbox(contRange, thresh, morp)
     global ContRangeC ThreshC MorpC
@@ -257,7 +269,7 @@ end
 
 function flameGrowthParameters()
     global Mask ImadjustRange MorpSize FiringCycle InjPressure R_Thres...
-        Cycles Center CaseMeanR CA StartFrame;
+        Cycles Center CaseMeanR CA StartFrame f2 Clear Labels;
     DirHeader = "D:\scott\Documents\University\Research Thesis\InjectionPressureVariation_202106\ProcessedMovie\" + num2str(InjPressure) + "bar";
     FCycleHeader = "f" + num2str(FiringCycle) + "_240_210_tSpk_6_S";
     InitialFlameFrame=3;
@@ -352,10 +364,18 @@ function flameGrowthParameters()
     CaseMeanR=MeanR;
     CAT = CA(StartFrame + 1:length(CaseMeanR) + StartFrame);
     figure(2);
-    clf;
+    if (Clear)
+        hold off;
+        Labels = {};
+    else
+        hold on;
+    end
+    plot(CAT, CaseMeanR);
     hold on;
+    legendString = num2str(InjPressure) + "bar\_[" + num2str(ImadjustRange(1)) + "," + num2str(ImadjustRange(2)) + "]\_" + num2str(MorpSize) + "kernel\_" + num2str(FiringCycle) + "fcycle\_" + num2str(Cycles) + "cycle";
+    legend(Labels{:}, legendString, 'Location', 'northwest');
+    Labels{length(Labels) + 1} = legendString;
     title("Flame Propagation Visualisation GUI (Inj Pressure: " + num2str(InjPressure) + "bar, Firing Cycle: " + num2str(FiringCycle) + ", Cycle: " + num2str(Cycles));
     xlabel('Crank Angle (degrees bTDC)');
     ylabel('Flame boundary area (mm^2)');
-    plot(CAT, CaseMeanR);
 end
